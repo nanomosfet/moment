@@ -1,30 +1,39 @@
 import { createDuration } from './create';
 
 var round = Math.round;
-var thresholds = {
-    ss: 44,         // a few seconds to seconds
-    s : 45,         // seconds to minute
-    m : 45,         // minutes to hour
-    h : 22,         // hours to day
-    d : 7,          // days to week
-    w : 4,          // weeks to month
-    M : 11          // months to year
-};
+
+function getThresholds (includeWeeks) {
+    var thresholds = {
+        ss: 44,         // a few seconds to seconds
+        s : 45,         // seconds to minute
+        m : 45,         // minutes to hour
+        h : 22,         // hours to day
+        d : 26,          // days to week
+        M : 11          // months to year
+    };
+
+    if (includeWeeks) {
+        thresholds.h = 7;
+        thresholds.w = 4;
+    }
+    return thresholds;
+}
 
 // helper function for moment.fn.from, moment.fn.fromNow, and moment.duration.fn.humanize
 function substituteTimeAgo(string, number, withoutSuffix, isFuture, locale) {
     return locale.relativeTime(number || 1, !!withoutSuffix, string, isFuture);
 }
 
-function relativeTime (posNegDuration, withoutSuffix, locale) {
-    var duration = createDuration(posNegDuration).abs();
-    var seconds  = round(duration.as('s'));
-    var minutes  = round(duration.as('m'));
-    var hours    = round(duration.as('h'));
-    var days     = round(duration.as('d'));
-    var weeks    = round(duration.as('w'));
-    var months   = round(duration.as('M'));
-    var years    = round(duration.as('y'));
+function relativeTime (posNegDuration, withoutSuffix, locale, includeWeeks) {
+    var duration   = createDuration(posNegDuration).abs();
+    var seconds    = round(duration.as('s'));
+    var minutes    = round(duration.as('m'));
+    var hours      = round(duration.as('h'));
+    var days       = round(duration.as('d'));
+    var weeks      = round(duration.as('w'));
+    var months     = round(duration.as('M'));
+    var years      = round(duration.as('y'));
+    var thresholds = getThresholds(includeWeeks)
 
     var a = seconds <= thresholds.ss && ['s', seconds]  ||
             seconds < thresholds.s   && ['ss', seconds] ||
@@ -33,12 +42,15 @@ function relativeTime (posNegDuration, withoutSuffix, locale) {
             hours   <= 1             && ['h']           ||
             hours   < thresholds.h   && ['hh', hours]   ||
             days    <= 1             && ['d']           ||
-            days    < thresholds.d   && ['dd', days]    ||
-            weeks   <= 1             && ['w']           ||
-            weeks   < thresholds.w   && ['ww', weeks]   ||
-            months  <= 1             && ['M']           ||
-            months  < thresholds.M   && ['MM', months]  ||
-            years   <= 1             && ['y']           || ['yy', years];
+            days    < thresholds.d   && ['dd', days];
+    
+    if (includeWeeks) {
+        a = a || weeks <= 1             && ['w']         ||
+                 weeks < thresholds.w   && ['ww', weeks];
+    }
+    a = a || months  <= 1             && ['M']           ||
+             months  < thresholds.M   && ['MM', months]  ||
+             years   <= 1             && ['y']           || ['yy', years];
 
     a[2] = withoutSuffix;
     a[3] = +posNegDuration > 0;
@@ -73,13 +85,13 @@ export function getSetRelativeTimeThreshold (threshold, limit) {
     return true;
 }
 
-export function humanize (withSuffix) {
+export function humanize (withSuffix, includeWeeks) {
     if (!this.isValid()) {
         return this.localeData().invalidDate();
     }
 
     var locale = this.localeData();
-    var output = relativeTime(this, !withSuffix, locale);
+    var output = relativeTime(this, !withSuffix, locale, includeWeeks);
 
     if (withSuffix) {
         output = locale.pastFuture(+this, output);
